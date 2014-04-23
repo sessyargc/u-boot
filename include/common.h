@@ -505,18 +505,7 @@ extern ssize_t spi_read	 (uchar *, int, uchar *, int);
 extern ssize_t spi_write (uchar *, int, uchar *, int);
 #endif
 
-#ifdef CONFIG_RPXCLASSIC
-void rpxclassic_init (void);
-#endif
-
 void rpxlite_init (void);
-
-#ifdef CONFIG_MBX
-/* $(BOARD)/mbx8xx.c */
-void	mbx_init (void);
-void	board_serial_init (void);
-void	board_ether_init (void);
-#endif
 
 #ifdef CONFIG_HERMES
 /* $(BOARD)/hermes.c */
@@ -822,8 +811,7 @@ void	udelay        (unsigned long);
 void mdelay(unsigned long);
 
 /* lib/uuid.c */
-void uuid_str_to_bin(const char *uuid, unsigned char *out);
-int uuid_str_valid(const char *uuid);
+#include <uuid.h>
 
 /* lib/vsprintf.c */
 #include <vsprintf.h>
@@ -835,9 +823,7 @@ char *	strmhz(char *buf, unsigned long hz);
 #include <u-boot/crc.h>
 
 /* lib/rand.c */
-#if defined(CONFIG_RANDOM_MACADDR) || \
-	defined(CONFIG_BOOTP_RANDOM_DELAY) || \
-	defined(CONFIG_CMD_LINK_LOCAL)
+#if defined(CONFIG_LIB_RAND) || defined(CONFIG_LIB_HW_RAND)
 #define RAND_MAX -1U
 void srand(unsigned int seed);
 unsigned int rand(void);

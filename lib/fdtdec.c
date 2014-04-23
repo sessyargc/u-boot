@@ -3,6 +3,7 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#ifndef USE_HOSTCC
 #include <common.h>
 #include <serial.h>
 #include <libfdt.h>
@@ -52,8 +53,10 @@ static const char * const compat_names[COMPAT_COUNT] = {
 	COMPAT(SAMSUNG_EXYNOS5_USB3_PHY, "samsung,exynos5250-usb3-phy"),
 	COMPAT(SAMSUNG_EXYNOS_TMU, "samsung,exynos-tmu"),
 	COMPAT(SAMSUNG_EXYNOS_FIMD, "samsung,exynos-fimd"),
+	COMPAT(SAMSUNG_EXYNOS_MIPI_DSI, "samsung,exynos-mipi-dsi"),
 	COMPAT(SAMSUNG_EXYNOS5_DP, "samsung,exynos5-dp"),
 	COMPAT(SAMSUNG_EXYNOS5_DWMMC, "samsung,exynos5250-dwmmc"),
+	COMPAT(SAMSUNG_EXYNOS_MMC, "samsung,exynos-mmc"),
 	COMPAT(SAMSUNG_EXYNOS_SERIAL, "samsung,exynos4210-uart"),
 	COMPAT(MAXIM_MAX77686_PMIC, "maxim,max77686_pmic"),
 	COMPAT(GENERIC_SPI_FLASH, "spi-flash"),
@@ -643,3 +646,22 @@ int fdtdec_read_fmap_entry(const void *blob, int node, const char *name,
 
 	return 0;
 }
+#else
+#include "libfdt.h"
+#include "fdt_support.h"
+
+int fdtdec_get_int(const void *blob, int node, const char *prop_name,
+		int default_val)
+{
+	const int *cell;
+	int len;
+
+	cell = fdt_getprop_w((void *)blob, node, prop_name, &len);
+	if (cell && len >= sizeof(int)) {
+		int val = fdt32_to_cpu(cell[0]);
+
+		return val;
+	}
+	return default_val;
+}
+#endif
