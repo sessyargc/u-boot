@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (c) 2013, Google Inc.
 #
@@ -14,7 +14,7 @@ set -e
 run_uboot() {
 	echo -n "Test Verified Boot Run: $1: "
 	${uboot} -d sandbox-u-boot.dtb >${tmp} -c '
-sb load host 0 100 test.fit;
+sb load hostfs - 100 test.fit;
 fdt addr 100;
 bootm 100;
 reset'
@@ -54,8 +54,16 @@ echo ${mkimage} -D "${dtc}"
 echo "Build keys"
 mkdir -p ${keys}
 
+PUBLIC_EXPONENT=${1}
+
+if [ -z "${PUBLIC_EXPONENT}" ]; then
+	PUBLIC_EXPONENT=65537
+fi
+
 # Create an RSA key pair
-openssl genrsa -F4 -out ${keys}/dev.key 2048 2>/dev/null
+openssl genpkey -algorithm RSA -out ${keys}/dev.key \
+    -pkeyopt rsa_keygen_bits:2048 \
+    -pkeyopt rsa_keygen_pubexp:${PUBLIC_EXPONENT} 2>/dev/null
 
 # Create a certificate containing the public key
 openssl req -batch -new -x509 -key ${keys}/dev.key -out ${keys}/dev.crt

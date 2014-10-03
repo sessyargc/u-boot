@@ -45,6 +45,7 @@ struct lmb;
 #endif /* USE_HOSTCC */
 
 #if defined(CONFIG_FIT)
+#include <hash.h>
 #include <libfdt.h>
 #include <fdt_support.h>
 # ifdef CONFIG_SPL_BUILD
@@ -70,6 +71,11 @@ struct lmb;
 #  define IMAGE_ENABLE_SHA1	1
 #  define IMAGE_ENABLE_SHA256	1
 # endif
+
+#ifdef CONFIG_FIT_DISABLE_SHA256
+#undef CONFIG_SHA256
+#undef IMAGE_ENABLE_SHA256
+#endif
 
 #ifndef IMAGE_ENABLE_CRC32
 #define IMAGE_ENABLE_CRC32	0
@@ -224,6 +230,8 @@ struct lmb;
 #define IH_TYPE_KERNEL_NOLOAD	14	/* OS Kernel Image, can run from any load address */
 #define IH_TYPE_PBLIMAGE	15	/* Freescale PBL Boot Image	*/
 #define IH_TYPE_MXSIMAGE	16	/* Freescale MXSBoot Image	*/
+#define IH_TYPE_GPIMAGE		17	/* TI Keystone GPHeader Image	*/
+#define IH_TYPE_ATMELIMAGE	18	/* ATMEL ROM bootable Image	*/
 
 /*
  * Compression Types
@@ -404,21 +412,30 @@ void genimg_print_time(time_t timestamp);
 enum fit_load_op {
 	FIT_LOAD_IGNORED,	/* Ignore load address */
 	FIT_LOAD_OPTIONAL,	/* Can be provided, but optional */
+	FIT_LOAD_OPTIONAL_NON_ZERO,	/* Optional, a value of 0 is ignored */
 	FIT_LOAD_REQUIRED,	/* Must be provided */
 };
 
 #ifndef USE_HOSTCC
 /* Image format types, returned by _get_format() routine */
 #define IMAGE_FORMAT_INVALID	0x00
+#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
 #define IMAGE_FORMAT_LEGACY	0x01	/* legacy image_header based format */
+#endif
 #define IMAGE_FORMAT_FIT	0x02	/* new, libfdt based format */
+#define IMAGE_FORMAT_ANDROID	0x03	/* Android boot image */
 
+ulong genimg_get_kernel_addr_fit(char * const img_addr,
+			         const char **fit_uname_config,
+			         const char **fit_uname_kernel);
+ulong genimg_get_kernel_addr(char * const img_addr);
 int genimg_get_format(const void *img_addr);
 int genimg_has_config(bootm_headers_t *images);
 ulong genimg_get_image(ulong img_addr);
 
 int boot_get_ramdisk(int argc, char * const argv[], bootm_headers_t *images,
 		uint8_t arch, ulong *rd_start, ulong *rd_end);
+#endif
 
 /**
  * fit_image_load() - load an image from a FIT
@@ -428,8 +445,9 @@ int boot_get_ramdisk(int argc, char * const argv[], bootm_headers_t *images,
  * out progress messages, checking the type/arch/os and optionally copying it
  * to the right load address.
  *
+ * The property to look up is defined by image_type.
+ *
  * @param images	Boot images structure
- * @param prop_name	Property name to look up (FIT_..._PROP)
  * @param addr		Address of FIT in memory
  * @param fit_unamep	On entry this is the requested image name
  *			(e.g. "kernel@1") or NULL to use the default. On exit
@@ -447,12 +465,14 @@ int boot_get_ramdisk(int argc, char * const argv[], bootm_headers_t *images,
  * @param load_op	Decribes what to do with the load address
  * @param datap		Returns address of loaded image
  * @param lenp		Returns length of loaded image
+ * @return node offset of image, or -ve error code on error
  */
-int fit_image_load(bootm_headers_t *images, const char *prop_name, ulong addr,
+int fit_image_load(bootm_headers_t *images, ulong addr,
 		   const char **fit_unamep, const char **fit_uname_configp,
 		   int arch, int image_type, int bootstage_id,
 		   enum fit_load_op load_op, ulong *datap, ulong *lenp);
 
+#ifndef USE_HOSTCC
 /**
  * fit_get_node_from_config() - Look up an image a FIT by type
  *
@@ -597,8 +617,8 @@ int image_check_dcrc(const image_header_t *hdr);
 ulong getenv_bootm_low(void);
 phys_size_t getenv_bootm_size(void);
 phys_size_t getenv_bootm_mapsize(void);
-void memmove_wd(void *to, void *from, size_t len, ulong chunksz);
 #endif
+void memmove_wd(void *to, void *from, size_t len, ulong chunksz);
 
 static inline int image_check_magic(const image_header_t *hdr)
 {
@@ -701,7 +721,7 @@ int bootz_setup(ulong image, ulong *start, ulong *end);
 #define FIT_FDT_PROP		"fdt"
 #define FIT_DEFAULT_PROP	"default"
 
-#define FIT_MAX_HASH_LEN	20	/* max(crc32_len(4), sha1_len(20)) */
+#define FIT_MAX_HASH_LEN	HASH_MAX_DIGEST_SIZE
 
 /* cmdline argument format parsing */
 int fit_parse_conf(const char *spec, ulong addr_curr,
@@ -876,7 +896,7 @@ struct image_region {
 };
 
 #if IMAGE_ENABLE_VERIFY
-# include <rsa-checksum.h>
+# include <u-boot/rsa-checksum.h>
 #endif
 struct checksum_algo {
 	const char *name;
@@ -1029,5 +1049,17 @@ static inline int fit_image_check_target_arch(const void *fdt, int node)
 #define fit_unsupported_reset(msg)
 #endif /* CONFIG_FIT_VERBOSE */
 #endif /* CONFIG_FIT */
+
+#if defined(CONFIG_ANDROID_BOOT_IMAGE)
+struct andr_img_hdr;
+int android_image_check_header(const struct andr_img_hdr *hdr);
+int android_image_get_kernel(const struct andr_img_hdr *hdr, int verify,
+			     ulong *os_data, ulong *os_len);
+int android_image_get_ramdisk(const struct andr_img_hdr *hdr,
+			      ulong *rd_data, ulong *rd_len);
+ulong android_image_get_end(const struct andr_img_hdr *hdr);
+ulong android_image_get_kload(const struct andr_img_hdr *hdr);
+
+#endif /* CONFIG_ANDROID_BOOT_IMAGE */
 
 #endif	/* __IMAGE_H__ */
